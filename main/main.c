@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include "../headers/fft.h"
 #include <mpi.h>
+#include <math.h>
 
 void memset_0(int *buffer, size_t size){
     for(int i = 0; i < size; i++){
@@ -50,8 +51,15 @@ int main(int argc, char** argv){
     int group_column = keepLSB(rank, num_bits/2); 
     int group_row = (keepMSB(rank, num_bits/2) >> num_bits/2);
 
+    printf("Eu, o processo %d pertenco a linha %d e a coluna %d\n\n", rank, group_row, group_column);
 
+    MPI_Comm_split(MPI_COMM_WORLD, group_column, rank, &column_comunicator[group_column]);
 
+    MPI_Comm_split(MPI_COMM_WORLD, group_row, rank, &row_comunicator[group_row]);
+
+    //#define MPI_OK
+
+    #ifdef MPI_OK
     //Serial Component
     if(rank == 0){
         //Verify if the number of process is a power of 2
@@ -93,11 +101,15 @@ int main(int argc, char** argv){
 
 
     }
-
-    //MPI logic
+    #endif
     
-
 
     //OpenMP logic
 
+
+    //Finally
+
+    MPI_Finalize();
+
+    return 0;
 }
