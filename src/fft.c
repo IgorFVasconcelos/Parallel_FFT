@@ -5,7 +5,7 @@
 #include "../headers/fft.h"
 
 //Função que gerencia o butterfly
-int mpi_reverse(int num, int logn){
+int reverse(int num, int logn){
     int res = 0;
     for (int i = 0; i < logn; i++){
         if(num & (1 << i)){
@@ -20,9 +20,9 @@ void fft(cd* signal, size_t size){
 
     int logn = log2(size);
 
-    //Fazendo as trocas da butterfly
+    //Butterfly suffle
     for (int i = 0; i < size; i++){
-        int rev = mpi_reverse(i, logn);
+        int rev = reverse(i, logn);
 
         if (i < rev) {
             //swap
@@ -32,8 +32,8 @@ void fft(cd* signal, size_t size){
         }
     }
 
-    //FFT propriamente dita
-    for(int len = 2; len <= size; size <<= 1){
+    //Proper fft
+    for(int len = 2; len <= size; len <<= 1){
 
         double ang = 2 * PI / len;
         cd wlen = cos(ang) + sin(ang) * I;

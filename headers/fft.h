@@ -4,6 +4,6 @@
 
 typedef double complex cd;
 
-int fft_reverse(int num, int logn);
+//int fft_reverse(int num, int logn);
 
 void fft(cd* signal, size_t size);
