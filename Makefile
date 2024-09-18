@@ -1,5 +1,5 @@
 # Variáveis
-CC = gcc
+CC = mpicc
 CFLAGS = -I./headers
 LDFLAGS = -lm
 SRC_DIR = ./src
@@ -10,7 +10,7 @@ TARGET = $(MAIN_DIR)/main_program
 # Arquivos fonte e objetos
 SRC_FILES = $(wildcard $(SRC_DIR)/*.c)
 OBJ_FILES = $(patsubst $(SRC_DIR)/%.c, $(OBJ_DIR)/%.o, $(SRC_FILES))
-MAIN_FILE = $(MAIN_DIR)/main_teste.c
+MAIN_FILE = $(MAIN_DIR)/main.c
 
 # Regra padrão para compilar o projeto
 all: $(TARGET)

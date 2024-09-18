@@ -5,6 +5,8 @@
 #include <mpi.h>
 #include <math.h>
 
+//#define DEBUG
+
 int main(int argc, char** argv){
 
     //MPI Startup
@@ -16,9 +18,13 @@ int main(int argc, char** argv){
     unsigned int dimension = sqrt(world_size);
 
     //Definindo os buffers
-    int signal_start_buffer[world_size];
-    cd signal_proccessing_buffer[world_size];
-    cd recv_buffer[world_size];
+    size_t sig_size = pow(sqrt(world_size), 3);
+    int signal_start_buffer[dimension];
+    cd signal_proccessing_buffer[dimension];
+    cd recv_buffer[dimension];
+    //Buffers finais
+    int signal[sig_size];
+    cd transform_signal[sig_size];
 
     //Definindo os comunicadores de linhas e colunas
     MPI_Comm row_comunicator[dimension];
@@ -29,7 +35,7 @@ int main(int argc, char** argv){
     unsigned int group_column = keepLSB(rank, num_bits/2); 
     unsigned int group_row = (keepMSB(rank, num_bits/2) >> num_bits/2);
 
-    printf("Eu, o processo %u pertenco a linha %u e a coluna %u\n\n", rank, group_row, group_column);
+    //printf("Eu, o processo %u pertenco a linha %u e a coluna %u\n\n", rank, group_row, group_column);
 
     MPI_Comm_split(MPI_COMM_WORLD, group_column, rank, &column_comunicator[group_column]);
 
@@ -49,7 +55,7 @@ int main(int argc, char** argv){
         //File logic
         //Suposing a signal of ints
         char buffer[16];
-        char* path = "/data/raw.txt";
+        char* path = "./data/raw.txt";
         FILE* f = fopen(path, "r");
 
         if(f == NULL){
@@ -58,9 +64,7 @@ int main(int argc, char** argv){
         }
 
         //Copy signal from file to array
-        size_t sig_size = pow(sqrt(world_size), 3);
 
-        int signal[sig_size];
         memset_0(signal, sig_size);
 
         char* ptr = NULL;
@@ -70,49 +74,61 @@ int main(int argc, char** argv){
             ptr = fgets(buffer, 10, f);
 
             if(ptr == NULL){
-                printf("Erro, linha não encontrada");
+                printf("Error, line not found");
                 ptr = &zero;
             }
             signal[i] += atoi(ptr);
         }
-        free(ptr);
-        free(zero);
+        fclose(f);
 
         //Send the appropriate data for each proccess
         for (int dest = 1; dest < world_size; dest++){
-          int start = dest*world_size;
-          MPI_Send(signal[start], world_size, MPI_INT, dest, 0, MPI_COMM_WORLD);
+          int start = dest*dimension;
+
+          MPI_Send(&signal[start], dimension, MPI_INT, dest, 0, MPI_COMM_WORLD);
         }
 
-        for (int i = 0; i < world_size; i++){
+        for (int i = 0; i < dimension; i++){
           signal_proccessing_buffer[i] = (complex)signal[i];
         }
 
     }
-
     if (rank != 0){
-      MPI_Recv(signal_start_buffer, world_size, MPI_INT32_T, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+      MPI_Recv(signal_start_buffer, dimension, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
       
-      for(int i = 0; i < world_size; i++){
+      for(int i = 0; i < dimension; i++){
         signal_proccessing_buffer[i] = (complex)signal_start_buffer[i];
-      }
-
     }
 
-    //Process locally
-    fft(signal_proccessing_buffer, world_size);
+    }
+    fft(signal_proccessing_buffer, (size_t) dimension);
+
     //Shift rows
-    MPI_Alltoall(signal_proccessing_buffer, world_size, MPI_DOUBLE_COMPLEX, recv_buffer, world_size, MPI_DOUBLE_COMPLEX, row_comunicator[group_row]);
-    fft(recv_buffer, world_size);
+    MPI_Alltoall(signal_proccessing_buffer, 1, MPI_DOUBLE_COMPLEX, recv_buffer, 1, MPI_DOUBLE_COMPLEX, row_comunicator[group_row]);
+    fft(recv_buffer, (size_t) dimension);
     //Shift Columns
-    MPI_Alltoall(recv_buffer, world_size, MPI_DOUBLE_COMPLEX, signal_proccessing_buffer, world_size, MPI_DOUBLE_COMPLEX, column_comunicator[group_column]);
-    fft(signal_proccessing_buffer, world_size);
+    MPI_Alltoall(recv_buffer, 1, MPI_DOUBLE_COMPLEX, signal_proccessing_buffer, 1, MPI_DOUBLE_COMPLEX, column_comunicator[group_column]);
+    fft(signal_proccessing_buffer, (size_t) dimension);
 
-    //OpenMP logic
-
+    #ifdef DEBUG
+    printf("%d: meu vetor =", rank);
+    for (int i = 0; i < dimension; i++){
+      printf(" %lf + %lfj,", creal(signal_proccessing_buffer[i]), cimag(signal_proccessing_buffer[i]));
+    }
+    printf("\n");
+    #endif
 
     //Finally
+    //Gathering all data
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Gather(signal_proccessing_buffer, dimension, MPI_DOUBLE_COMPLEX, transform_signal, dimension, MPI_DOUBLE_COMPLEX, 0, MPI_COMM_WORLD);
 
+    //Printing all data
+    if(rank == 0){
+      for(int i = 0; i < sig_size; i++){
+        printf("%lf + %lfj\n", creal(transform_signal[i]), cimag(transform_signal[i]));
+      }
+    }
     MPI_Finalize();
 
     return 0;
