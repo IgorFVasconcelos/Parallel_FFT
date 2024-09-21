@@ -37,3 +37,8 @@ mpicc -np 256 ./main/main_program
 if needed use the --oversubscribe flag
 
 mpicc --oversubscribe -np 256 ./main/main_program
+
+### OPEN ISSUES
+- Make the program accept any power of 2 input despite the number of available processes
+
+- Make the size of input be a parameter of the compilation OR make it do the zero padding automatically 
